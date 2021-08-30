@@ -26,4 +26,7 @@
 #define ARCH_CET_DISABLE		0x5002
 #define ARCH_CET_LOCK			0x5003
 
+/* ARCH_CET_ features bits */
+#define CET_SHSTK			(1ULL <<  0)
+
 #endif /* _ASM_X86_PRCTL_H */
