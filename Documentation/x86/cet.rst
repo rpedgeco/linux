@@ -66,6 +66,10 @@ arch_prctl(ARCH_CET_LOCK, unsigned int features)
     are ignored. The mask is ORed with the existing value. So any feature bits
     set here cannot be enabled or disabled afterwards.
 
+arch_prctl(ARCH_CET_UNLOCK, unsigned int features)
+    Unlock features. 'features' is a mask of all features to unlock. All
+    bits set are processed, unset bits are ignored.
+
 The return values are as following:
     On success, return 0. On error, errno can be::
 

@@ -25,6 +25,7 @@
 #define ARCH_CET_ENABLE			0x5001
 #define ARCH_CET_DISABLE		0x5002
 #define ARCH_CET_LOCK			0x5003
+#define ARCH_CET_UNLOCK			0x5004
 
 /* ARCH_CET_ features bits */
 #define CET_SHSTK			(1ULL <<  0)
