@@ -28,5 +28,6 @@
 
 /* ARCH_CET_ features bits */
 #define CET_SHSTK			(1ULL <<  0)
+#define CET_WRSS			(1ULL <<  1)
 
 #endif /* _ASM_X86_PRCTL_H */
