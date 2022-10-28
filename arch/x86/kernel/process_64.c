@@ -867,3 +867,36 @@ unsigned long KSTK_ESP(struct task_struct *task)
 {
 	return task_pt_regs(task)->sp;
 }
+
+#ifdef CONFIG_X86_USER_SHADOW_STACK
+int arch_parse_elf_property(u32 type, const void *data, size_t datasz,
+			    bool compat, struct arch_elf_state *state)
+{
+	if (type != GNU_PROPERTY_X86_FEATURE_1_AND)
+		return 0;
+
+	if (datasz != sizeof(unsigned int))
+		return -ENOEXEC;
+
+	state->gnu_property = *(unsigned int *)data;
+	return 0;
+}
+
+int arch_process_elf_property(struct arch_elf_state *state)
+{
+	bad_cet_binary_disable(state->gnu_property & GNU_PROPERTY_X86_FEATURE_1_BAD);
+	return 0;
+}
+#else /* CONFIG_X86_USER_SHADOW_STACK */
+int arch_parse_elf_property(u32 type, const void *data, size_t datasz,
+			    bool compat, struct arch_elf_state *state)
+{
+	return 0;
+}
+
+int arch_process_elf_property(struct arch_elf_state *state)
+{
+	return 0;
+}
+#endif /* CONFIG_X86_USER_SHADOW_STACK */
+

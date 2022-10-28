@@ -534,6 +534,7 @@ struct thread_struct {
 #ifdef CONFIG_X86_USER_SHADOW_STACK
 	unsigned long		features;
 	unsigned long		features_locked;
+	bool			bad_cet_binary_disable;
 
 	struct thread_shstk	shstk;
 #endif

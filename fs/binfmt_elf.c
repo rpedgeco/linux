@@ -821,6 +821,18 @@ static int parse_elf_properties(struct file *f, const struct elf_phdr *phdr,
 	return ret == -ENOENT ? 0 : ret;
 }
 
+static int check_elf_properties(struct file *f, const struct elf_phdr *phdr)
+{
+	struct arch_elf_state arch_state = INIT_ARCH_ELF_STATE;
+	int retval;
+
+	retval = parse_elf_properties(f, phdr, &arch_state);
+	if (retval)
+		return retval;
+
+	return arch_process_elf_property(&arch_state);
+}
+
 static int load_elf_binary(struct linux_binprm *bprm)
 {
 	struct file *interpreter = NULL; /* to shut gcc up */
@@ -920,12 +932,20 @@ static int load_elf_binary(struct linux_binprm *bprm)
 		if (retval < 0)
 			goto out_free_dentry;
 
-		break;
+		/* Quit if already found PT_GNU_PROPERTY */
+		if (elf_property_phdata)
+			break;
+
+		continue;
 
 out_free_interp:
 		kfree(elf_interpreter);
 		goto out_free_ph;
 	}
+
+	retval = check_elf_properties(bprm->file, elf_property_phdata);
+	if (retval)
+		return retval;
 
 	elf_ppnt = elf_phdata;
 	for (i = 0; i < elf_ex->e_phnum; i++, elf_ppnt++)

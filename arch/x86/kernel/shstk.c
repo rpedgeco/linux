@@ -445,6 +445,9 @@ SYSCALL_DEFINE3(map_shadow_stack, unsigned long, addr, unsigned long, size, unsi
 
 long cet_prctl(struct task_struct *task, int option, unsigned long features)
 {
+	if (task->thread.bad_cet_binary_disable)
+		return -EINVAL;
+
 	if (option == ARCH_CET_LOCK) {
 		task->thread.features_locked |= features;
 		return 0;
@@ -482,3 +485,15 @@ long cet_prctl(struct task_struct *task, int option, unsigned long features)
 		return wrss_control(true);
 	return -EINVAL;
 }
+
+#ifdef CONFIG_X86_USER_SHADOW_STACK_ALLOW_BROKEN
+void bad_cet_binary_disable(bool disable)
+{
+	current->thread.bad_cet_binary_disable = false;
+}
+#else /* CONFIG_X86_USER_SHADOW_STACK_ALLOW_BROKEN */
+void bad_cet_binary_disable(bool disable)
+{
+	current->thread.bad_cet_binary_disable = disable;
+}
+#endif /* CONFIG_X86_USER_SHADOW_STACK_ALLOW_BROKEN */
