@@ -25,6 +25,8 @@
 #include <asm/special_insns.h>
 #include <asm/fpu/api.h>
 #include <asm/prctl.h>
+#include <asm/insn.h>
+#include <asm/traps.h>
 
 #define SS_FRAME_SIZE 8
 
@@ -360,6 +362,19 @@ void shstk_free(struct task_struct *tsk)
 	unmap_shadow_stack(shstk->base, shstk->size);
 }
 
+static int suppress_ud_control(bool enable)
+{
+	if (!cpu_feature_enabled(X86_FEATURE_USER_SHSTK))
+		return -EOPNOTSUPP;
+
+	if (enable)
+		features_set(ARCH_SHSTK_SUPPRESS_UD);
+	else
+		features_clr(ARCH_SHSTK_SUPPRESS_UD);
+
+	return 0;
+}
+
 static int wrss_control(bool enable)
 {
 	u64 msrval;
@@ -487,6 +502,8 @@ long shstk_prctl(struct task_struct *task, int option, unsigned long arg2)
 			return wrss_control(false);
 		if (features & ARCH_SHSTK_SHSTK)
 			return shstk_disable();
+		if (features & ARCH_SHSTK_SUPPRESS_UD)
+			return suppress_ud_control(false);
 		return -EINVAL;
 	}
 
@@ -495,5 +512,51 @@ long shstk_prctl(struct task_struct *task, int option, unsigned long arg2)
 		return shstk_setup();
 	if (features & ARCH_SHSTK_WRSS)
 		return wrss_control(true);
+	if (features & ARCH_SHSTK_SUPPRESS_UD)
+		return suppress_ud_control(true);
 	return -EINVAL;
 }
+
+bool is_incssp(struct insn *insn)
+{
+	if (insn->opcode.nbytes != 2)
+		return false;
+	if (insn->opcode.bytes[0] != 0x0f || insn->opcode.bytes[1] != 0xae)
+		return false;
+	return true;
+}
+
+bool handle_shstk_suppress_ud(struct pt_regs *regs)
+{
+	char buf[MAX_INSN_SIZE];
+	unsigned long new_ip;
+	struct insn insn = {};
+	bool ret = false;
+
+	if (!features_enabled(ARCH_SHSTK_SUPPRESS_UD))
+		return false;
+
+	cond_local_irq_enable(regs);
+
+	if (copy_from_user(buf, (void *)regs->ip, MAX_INSN_SIZE))
+		goto out;
+
+	if (insn_decode(&insn, buf, MAX_INSN_SIZE, INSN_MODE_64))
+		goto out;
+
+	if (!is_incssp(&insn))
+		goto out;
+
+	new_ip = regs->ip + insn.length;
+
+	if (new_ip >= TASK_SIZE)
+		goto out;
+
+	regs->ip = new_ip;
+	ret = true;
+
+out:
+	cond_local_irq_disable(regs);
+	return ret;
+}
+

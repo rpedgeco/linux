@@ -260,8 +260,11 @@ DEFINE_IDTENTRY_RAW(exc_invalid_op)
 
 	state = irqentry_enter(regs);
 	instrumentation_begin();
+	if (user_mode(regs) && handle_shstk_suppress_ud(regs))
+		goto out;
 	handle_invalid_op(regs);
 	instrumentation_end();
+out:
 	irqentry_exit(regs, state);
 }
 

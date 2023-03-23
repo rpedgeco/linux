@@ -49,6 +49,7 @@
 
 #define ARCH_SHSTK_SHSTK	(1ULL <<  0)
 #define ARCH_SHSTK_WRSS		(1ULL <<  1)
+#define ARCH_SHSTK_SUPPRESS_UD	(1ULL <<  2)
 #endif
 
 #define SS_SIZE 0x200000
@@ -606,6 +607,27 @@ int test_32bit(void)
 	return !segv_triggered;
 }
 
+void incssp(unsigned long val)
+{
+	asm volatile("incsspq %[val]\n"
+		     :
+		     : [val] "r" (val));
+}
+
+int test_suppress_ud(void)
+{
+	if (ARCH_PRCTL(ARCH_SHSTK_ENABLE, ARCH_SHSTK_SUPPRESS_UD)) {
+		printf("[FAIL]\tARCH_SHSTK_SUPPRESS_UD failed\n");
+		return 1;
+	}
+
+	incssp(1);
+
+	printf("[OK]\tSuppress #UD test\n");
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int ret = 0;
@@ -676,6 +698,14 @@ int main(int argc, char *argv[])
 	if (test_32bit()) {
 		ret = 1;
 		printf("[FAIL]\t32 bit test\n");
+	}
+
+	/* Shadow stack is disable */
+
+	if (test_suppress_ud()) {
+		ret = 1;
+		printf("[FAIL]\tSuppress #UD test\n");
+		goto out;
 	}
 
 	return ret;
