@@ -50,6 +50,7 @@
 #define ARCH_SHSTK_SHSTK	(1ULL <<  0)
 #define ARCH_SHSTK_WRSS		(1ULL <<  1)
 #define ARCH_SHSTK_SUPPRESS_UD	(1ULL <<  2)
+#define ARCH_SHSTK_SUPPRESS_CP	(1ULL <<  3)
 #endif
 
 #define SS_SIZE 0x200000
@@ -614,6 +615,34 @@ void incssp(unsigned long val)
 		     : [val] "r" (val));
 }
 
+int test_suppress_cp(void)
+{
+	if (ARCH_PRCTL(ARCH_SHSTK_ENABLE, ARCH_SHSTK_SUPPRESS_CP)) {
+		printf("[FAIL]\tARCH_SHSTK_SUPPRESS_CP failed\n");
+		return 1;
+	}
+
+	violate_ss();
+
+	/*
+	 * The ret from violate_ss() should have taken a #CP and
+	 * the it would have been emulated by the kernel. But the kernel
+	 * does not adjust SSP in this case, so the SSP is now off and the
+	 * return from test_suppress_cp() will fail. Adjust SSP so this
+	 * doesn't happen.
+	 */
+	incssp(1);
+
+	if (ARCH_PRCTL(ARCH_SHSTK_DISABLE, ARCH_SHSTK_SUPPRESS_CP)) {
+		printf("[FAIL]\tARCH_SHSTK_SUPPRESS_CP failed\n");
+		return 1;
+	}
+
+	printf("[OK]\tSuppress #CP test\n");
+
+	return 0;
+}
+
 int test_suppress_ud(void)
 {
 	if (ARCH_PRCTL(ARCH_SHSTK_ENABLE, ARCH_SHSTK_SUPPRESS_UD)) {
@@ -692,6 +721,12 @@ int main(int argc, char *argv[])
 	if (test_userfaultfd()) {
 		ret = 1;
 		printf("[FAIL]\tUserfaultfd test\n");
+		goto out;
+	}
+
+	if (test_suppress_cp()) {
+		ret = 1;
+		printf("[FAIL]\tSuppress #CP test\n");
 		goto out;
 	}
 

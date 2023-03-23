@@ -32,5 +32,6 @@
 #define ARCH_SHSTK_SHSTK		(1ULL <<  0)
 #define ARCH_SHSTK_WRSS			(1ULL <<  1)
 #define ARCH_SHSTK_SUPPRESS_UD		(1ULL <<  2)
+#define ARCH_SHSTK_SUPPRESS_CP		(1ULL <<  3)
 
 #endif /* _ASM_X86_PRCTL_H */

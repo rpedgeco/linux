@@ -375,6 +375,19 @@ static int suppress_ud_control(bool enable)
 	return 0;
 }
 
+static int suppress_cp_control(bool enable)
+{
+	if (!cpu_feature_enabled(X86_FEATURE_USER_SHSTK))
+		return -EOPNOTSUPP;
+
+	if (enable)
+		features_set(ARCH_SHSTK_SUPPRESS_CP);
+	else
+		features_clr(ARCH_SHSTK_SUPPRESS_CP);
+
+	return 0;
+}
+
 static int wrss_control(bool enable)
 {
 	u64 msrval;
@@ -504,6 +517,8 @@ long shstk_prctl(struct task_struct *task, int option, unsigned long arg2)
 			return shstk_disable();
 		if (features & ARCH_SHSTK_SUPPRESS_UD)
 			return suppress_ud_control(false);
+		if (features & ARCH_SHSTK_SUPPRESS_CP)
+			return suppress_cp_control(false);
 		return -EINVAL;
 	}
 
@@ -514,6 +529,8 @@ long shstk_prctl(struct task_struct *task, int option, unsigned long arg2)
 		return wrss_control(true);
 	if (features & ARCH_SHSTK_SUPPRESS_UD)
 		return suppress_ud_control(true);
+	if (features & ARCH_SHSTK_SUPPRESS_CP)
+		return suppress_cp_control(true);
 	return -EINVAL;
 }
 
@@ -560,3 +577,28 @@ out:
 	return ret;
 }
 
+bool handle_shstk_suppress_cp_near_ret(struct pt_regs *regs)
+{
+	unsigned long ret_addr;
+
+	if (!features_enabled(ARCH_SHSTK_SUPPRESS_CP))
+		return false;
+
+	if (copy_from_user(&ret_addr, (void *)regs->sp, 8))
+		return false;
+
+	if (ret_addr >= TASK_SIZE || regs->sp + 8 >= TASK_SIZE)
+		return false;
+
+	/*
+	 * Should handle #SS checking logic? Bail if it's non
+	 * standard for now.
+	 */
+	if (WARN_ON(regs->ss != __USER_DS))
+		return false;
+
+	regs->sp += 8;
+	regs->ip = ret_addr;
+
+	return true;
+}
